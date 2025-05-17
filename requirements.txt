@@ -1,0 +1,7 @@
+imageio[ffmpeg]
+ipykernel==6.29.5
+numba==0.60.0
+pandas==2.2.3
+scipy==1.13.1
+seaborn==0.13.2
+tsplib95==0.7.1
