@@ -31,13 +31,6 @@ class DA_GVNS:
         self.start = None
         self.time_limit = None
         self.steps = 0
-        self.vnd_methods = {
-            'sequential': self._sequential_vnd,
-            'pipe': self._pipe_vnd,
-            'nested': self._nested_vnd,
-            'variable': self._variable_vnd,
-            'cyclic': self._cyclic_vnd
-        }
         
     @classmethod
     def _get_fn(cls):
@@ -153,9 +146,6 @@ class DA_GVNS:
                 candidate = np.append(candidate, candidate[0])
                 delta = self._evaluate(candidate) - cost0
                 
-                # if self.to_print:
-                #     self.plot_graph(tour=candidate, color_tour='red', to_video=True)
-                
                 if delta < best_delta:
                     best_delta = delta
                     best = candidate.copy()
@@ -164,75 +154,6 @@ class DA_GVNS:
                     break
                     
         return best, best_delta
-    
-    def _local_search_first_move(self, tour: np.ndarray, operator: str) -> Tuple[np.ndarray, float]:
-        best = tour
-        cost0 = self._evaluate(tour)
-        best_delta = 0.0
-
-        for i in range(1, self.n - 1):
-            
-            if time.time()-self.start > self.time_limit:
-                break
-            
-            for j in range(i+1, self.n - 1):
-                self.steps += 1
-                candidate = tour[:-1].copy()
-                
-                if operator == 'relocate':
-                    node = candidate[i]
-                    candidate = np.delete(candidate, i)
-                    candidate = np.append(candidate, node)
-            
-                elif operator == 'swap':
-                    candidate[i], candidate[j] = candidate[j], candidate[i]
-                    
-                elif operator == '2opt':
-                    candidate[i:j+1] = candidate[i:j+1][::-1]
-                    
-                candidate = np.append(candidate, candidate[0])
-                delta = self._evaluate(candidate) - cost0
-                
-                # if self.to_print:
-                #     self.plot_graph(tour=candidate, color_tour='red', to_video=True)
-                
-                if delta < best_delta:
-                    best_delta = delta
-                    best = candidate.copy()
-                    
-                    return best, best_delta
-                    
-                if operator == 'relocate':
-                    break
-                    
-        return best, best_delta
-    
-    def _local_search_random_move(self, tour: np.ndarray, operator: str) -> Tuple[np.ndarray, float]:
-        cost0 = self._evaluate(tour)
-        
-        i, j = sorted(random.sample(range(0, self.n), 2))
-                    
-        self.steps += 1
-        candidate = tour[:-1].copy()
-        
-        if operator == 'relocate':
-            node = candidate[i]
-            candidate = np.delete(candidate, i)
-            candidate = np.append(candidate, node)
-    
-        elif operator == 'swap':
-            candidate[i], candidate[j] = candidate[j], candidate[i]
-            
-        elif operator == '2opt':
-            candidate[i:j+1] = candidate[i:j+1][::-1]
-            
-        tour = np.append(candidate, candidate[0])
-        delta = self._evaluate(candidate) - cost0
-        
-        # if self.to_print:
-        #     self.plot_graph(tour=tour, color_tour='red', to_video=True)
-        
-        return tour, delta        
     
     def _sequential_vnd(self, tour: np.ndarray, local_search_order: List[str], local_search_counters: Dict[str,int]) -> Tuple[np.ndarray, bool]:
         improved_any = False
@@ -253,111 +174,7 @@ class DA_GVNS:
                     improved = False
                     
         return tour, improved_any
-    
-    def _pipe_vnd(self, tour: np.ndarray, local_search_order: List[str], local_search_counters: Dict[str,int]) -> Tuple[np.ndarray, bool]:
-        improved_any = False
-        
-        for op in local_search_order:
-            improved = True
-            
-            while improved:
-                best, delta = self._local_search_best_move(tour, op)
-                if delta < 0:
-                    tour = best
-                    local_search_counters[op] += 1
-                    improved_any = True
-                    
-                    if self.to_print:
-                        self.plot_graph(tour=tour, color_tour='red', to_video=True)
-                    
-                else:
-                    improved = False
-                    
-        return tour, improved_any
-    
-    def _nested_vnd(self, tour: np.ndarray, local_search_order: List[str], local_search_counters: Dict[str,int]) -> Tuple[np.ndarray, bool]:
-        improved_any = False
-        k = 0
-        
-        while k < len(local_search_order):
-            improved = True
-            while improved:
-                best, delta = self._local_search_best_move(tour, local_search_order[k])
-                if delta < 0:
-                    tour = best
-                    local_search_counters[local_search_order[k]] += 1
-                    improved_any = True
-                    
-                    if self.to_print:
-                        self.plot_graph(tour=tour, color_tour='red', to_video=True)
-                    
-                else:
-                    improved = False
-            
-            if improved:
-                k = 0  # Se melhorou, volta ao início
-            else:
-                k += 1  # Se não melhorou, avança
-                
-        return tour, improved_any
-    
-    
-    def _variable_vnd(self, tour: np.ndarray, local_search_order: List[str], local_search_counters: Dict[str,int]) -> Tuple[np.ndarray, bool]:
-        improved_any = False
-        
-        for op in local_search_order:
-            improved = True
-            while improved:
-                strategy = random.choice(['best', 'first', 'random'])
-                
-                if strategy == 'best':
-                    best, delta = self._local_search_best_move(tour, op)
-                    
-                elif strategy == 'first':
-                    best, delta = self._local_search_first_move(tour, op)
-                    
-                else:  # random
-                    best, delta = self._local_search_random_move(tour, op)
-                    
-                if delta < 0:
-                    tour = best
-                    local_search_counters[op] += 1
-                    improved_any = True
-                    
-                    if self.to_print:
-                        self.plot_graph(tour=tour, color_tour='red', to_video=True)
-                    
-                else:
-                    improved = False
-                    
-        return tour, improved_any
-    
-    def _cyclic_vnd(self, tour: np.ndarray, local_search_order: List[str], local_search_counters: Dict[str,int]) -> Tuple[np.ndarray, bool]:
-        improved_any = False
-        improved = True
-        
-        while improved:
-            improved = False
-            for op in local_search_order:
-                local_improved = True
-                
-                while local_improved:
-                    best, delta = self._local_search_best_move(tour, op)
-                    if delta < 0:
-                        improved = True
-                        tour = best
-                        local_search_counters[op] += 1
-                        improved_any = True
-                        
-                        if self.to_print:
-                            self.plot_graph(tour=tour, color_tour='red', to_video=True)
-                            
-                    else:
-                        local_improved = False
-                        
-        return tour, improved_any
-    
-    
+
     def _adapt_order(self, curr_order: List[str], counters: Dict[str,int], no_success: bool) -> List[str]:
         if no_success:
             return self.init_order.copy()
@@ -395,15 +212,10 @@ class DA_GVNS:
             'cost': [],
             'best_cost': [],
             'benchmark': [],
-            'vnd_method': [],
             'shake_operator': [],
             'improvement': []
         }
-        
-        # Adicionar colunas para as probabilidades de cada método VND
-        for vnd_method in self.vnd_methods.keys():
-            metrics_data[f'prob_{vnd_method}'] = []
-        
+                
         iteration_count = 0
         shake_ops = self.init_order.copy()
         local_search_ops = self.init_order.copy()
@@ -411,15 +223,9 @@ class DA_GVNS:
         shake_counters = {op:0 for op in shake_ops}
         local_search_counters = {op:0 for op in local_search_ops}
         
-        # Memória adaptativa para cada método VND
-        vnd_memory = {vnd: [0] for vnd in self.vnd_methods.keys()}
-        
         shake_any_improv = False
         local_search_any_improv = False
         
-        # Calcular probabilidades dos métodos VND
-        vnd_probs = self._calculate_vnd_probabilities(vnd_memory)
-        # Registro básico inicial
         metrics_entry = {
             'iteration': 0,
             'time': 0,
@@ -431,15 +237,7 @@ class DA_GVNS:
             'shake_operator': "",
             'improvement': 0
         }
-        
-        # Adicionar probabilidades de cada método VND
-        for vnd, prob in vnd_probs.items():
-            metrics_entry[f'prob_{vnd}'] = prob
-        
-        # Adicionar entrada ao dataframe
-        for key, value in metrics_entry.items():
-            metrics_data[key].append(value)
-        
+                
         self.start = time.time()
         
         while time.time()-self.start < self.time_limit:
@@ -466,16 +264,9 @@ class DA_GVNS:
                 local_search_ops = self._adapt_order(local_search_ops, local_search_counters, not local_search_any_improv)
                 local_search_any_improv = False
                 
-                # Calcular probabilidades dos métodos VND
-                vnd_probs = self._calculate_vnd_probabilities(vnd_memory)
-                
-                # Selecionar método VND baseado nas probabilidades
-                # vnd_method_name = "pipe"
-                vnd_method_name = self._select_vnd_method(vnd_memory)
-                
                 # Aplicar o método VND selecionado
                 old_step = self.steps
-                s_new, improved_ls = self.vnd_methods[vnd_method_name](s_star, local_search_ops, local_search_counters)
+                s_new, improved_ls = self._sequential_vnd(s_star, local_search_ops, local_search_counters)
                 
                 if improved_ls:
                     local_search_any_improv = True
@@ -484,9 +275,6 @@ class DA_GVNS:
                 new_cost = self._evaluate(s_new)
                 cost_update = new_cost - self.best_cost
                 cost_update_weighted = cost_update / (self.steps - old_step)
-                
-                # Atualizar a memória do método VND usado
-                vnd_memory = self._update_vnd_memory(vnd_memory, vnd_method_name, cost_update_weighted, memory_size)
                 
                 # Verificar se encontramos uma solução melhor
                 if cost_update < 0:
@@ -505,14 +293,9 @@ class DA_GVNS:
                     'cost': new_cost,
                     'best_cost': self.best_cost,
                     'benchmark': self.benchmark if self.benchmark is not None else float('nan'),
-                    'vnd_method': vnd_method_name,
                     'shake_operator': op,
                     'improvement': cost_update
                 }
-                
-                # Adicionar probabilidades de cada método VND
-                for vnd, prob in vnd_probs.items():
-                    metrics_entry[f'prob_{vnd}'] = prob
                 
                 # Adicionar entrada ao dataframe
                 for key, value in metrics_entry.items():
@@ -539,78 +322,6 @@ class DA_GVNS:
         }
         
         return history
-    
-    def _calculate_vnd_probabilities(self, vnd_memory: Dict[str, List[float]]) -> Dict[str, float]:
-        """
-        Calcula as probabilidades de seleção para cada método VND
-        
-        Args:
-            vnd_memory: Dicionário com custos recentes para cada método VND
-            
-        Returns:
-            Dicionário com as probabilidades de cada método
-        """
-        # Calcular média para cada método
-        avg_costs_update = {}
-        for vnd, costs in vnd_memory.items():
-            avg_costs_update[vnd] = sum(costs) / len(costs) if costs else 0.0
-            
-        delta = min(avg_costs_update.values())
-        
-        for vnd, costs in vnd_memory.items():
-            avg_costs_update[vnd] -= delta
-                
-        # Calcular soma dos custos médios
-        sum_costs_update = sum(avg_costs_update.values()) + 1e-6  # Para evitar divisão por zero
-        
-        # Calcular probabilidades iniciais
-        methods = list(vnd_memory.keys())
-        probs = [cost_update/sum_costs_update for cost_update in avg_costs_update.values()]
-        
-        # Ajustar probabilidades para garantir valores mínimos
-        temp = 0
-        richs = []
-        for i in range(len(probs)):
-            if probs[i] < 0.1:
-                temp += 0.1 - probs[i]
-                probs[i] = 0.1
-                    
-            elif probs[i] > 0.25:
-                richs.append(i)
-                    
-        for rich in richs:
-            probs[rich] -= temp / len(richs) if richs else 0
-
-        # Normalizar para que a soma seja 1
-        sum_probs = sum(probs)       
-        probs = [p/sum_probs for p in probs]
-        
-        # Criar dicionário de probabilidades
-        probabilities = {methods[i]: probs[i] for i in range(len(methods))}
-        
-        return probabilities
-    
-    def _select_vnd_method(self, vnd_memory: Dict[str, List[float]]) -> str:
-        # Obter as probabilidades calculadas
-        probabilities = self._calculate_vnd_probabilities(vnd_memory)
-        
-        # Preparar para seleção ponderada
-        methods = list(probabilities.keys())
-        probs = list(probabilities.values())
-        
-        # Selecionar método baseado nas probabilidades
-        return "sequential" # np.random.choice(methods, p=probs)
-
-    def _update_vnd_memory(self, vnd_memory: Dict[str, List[float]], vnd_method: str, 
-                        cost_update: float, memory_size: int) -> Dict[str, List[float]]:
-
-        vnd_memory[vnd_method].append(cost_update)
-        
-        # Manter apenas os 'memory_size' custos mais recentes
-        if len(vnd_memory[vnd_method]) > memory_size:
-            vnd_memory[vnd_method] = vnd_memory[vnd_method][-memory_size:]
-            
-        return vnd_memory
                         
     def plot_graph(self, tour: Optional[Union[np.ndarray, str]]=None, color_tour: str = 'red', to_video: bool=False) -> None:
         edge_weights = [self.G[u][v].get('weight', 1) for u, v in self.G.edges()]
@@ -690,33 +401,6 @@ class DA_GVNS:
                     path_edges.append((node_list[self.best[i]], node_list[self.best[i+1]]))
         
         if path_edges is not None:
-            # best_edges = [(self.best[i] + 1, self.best[i+1] + 1) for i in range(len(self.best) - 1)]
-            # nx.draw_networkx_edges(
-            #     self.G, self.pos,
-            #     edgelist=best_edges,
-            #     width=2,
-            #     edge_color='black',
-            #     style='dashed',
-            #     alpha=1,
-            #     arrows=True,
-            #     connectionstyle='arc3,rad=0.1'
-            # )
-            
-            
-            # different_edges = [edge for edge in path_edges if edge not in best_edges]
-        
-            # # Desenha apenas as arestas diferentes em vermelho
-            # if different_edges:
-            #     nx.draw_networkx_edges(
-            #         self.G, self.pos,
-            #         edgelist=different_edges,
-            #         width=2,
-            #         edge_color='red',
-            #         style='dashed',
-            #         alpha=0.7,
-            #         arrows=True,
-            #         connectionstyle='arc3,rad=0.1'
-            #     )
             
             # # Desenha apenas as arestas diferentes em vermelho
             nx.draw_networkx_edges(
